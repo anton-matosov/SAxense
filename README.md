@@ -1,16 +1,29 @@
 # SAxense — DualSense Haptics over Bluetooth (POC)
 
 
-### Usage (assuming DualSenses):
+### Usage (DualSense & Edge):
 ```sh
-# Play a local file
-ffmpeg -re -i /path/to/audio.mp3 -ac 2 -ar 3000 -f s8 - | ./SAxense | ls /sys/devices/virtual/misc/uhid/0005:054C:0CE6.*/hidraw | sed 's|^|/dev/|' | xargs -or -- tee > /dev/null
+dev="$(ls /sys/devices/virtual/misc/uhid/0005:054C:{0CE6,0DF2}.*/hidraw | sed 's|^|/dev/|')"
 
-# Capture loopback as haptics
-pw-record -P '{ stream.capture.sink=true }' --format s8 --rate 3000 - | ./SAxense | ls /sys/devices/virtual/misc/uhid/0005:054C:0CE6.*/hidraw | sed 's|^|/dev/|' | xargs -or -- tee > /dev/null
+# Play a local file
+ffmpeg -re -i /path/to/audio.mp3 -ac 2 -ar 3000 -f s8 - | ./SAxense > "$dev"
+
+# Provide a separate haptics sink (recommended)
+pw-cli -m load-module libpipewire-module-pipe-tunnel tunnel.mode=sink pipe.filename=/dev/shm/SAxense.sock audio.format=u8 audio.rate=3000 audio.channels=2 node.name=SAxense stream.props='{media.role=Haptics device.icon-name=input-gaming}'
+./SAxense < /dev/shm/SAxense > "$dev"
+
+# Capture loopback as haptics (not recommended)
+pw-cli -m load-module libpipewire-module-pipe-tunnel tunnel.mode=capture pipe.filename=/dev/shm/SAxense.sock audio.format=u8 audio.rate=3000 audio.channels=2 node.name=SAxense stream.props='{media.role=Haptics device.icon-name=input-gaming}'
+# (you might need to change it from a default source to the default sink monitor)
+./SAxense < /dev/shm/SAxense > "$dev"
 ```
 > [!NOTE]
 > Depending on your setup, you might experience some subtle delay (but up to couple seconds in some rare cases). It comes neither from SAxense nor HID/BT, but from the latency in capturing the loopback audio stream. Try `sox` or `ffmpeg` in such case, this might help reduce it. A native real-time PipeWire SPA plugin is on its way soon (this will also bring native games support for those already using it over UAC).
+
+#### With multiple devices:
+```sh
+SAxense … | tee -p -- $(ls /sys/devices/virtual/misc/uhid/0005:054C:{0CE6,0DF2}.*/hidraw | sed 's|^|/dev/|') > /dev/null
+```
 
 This POC has been R&D'd in under two weeks without having access to any documentation/sources or ever touching a PS (physical or remote). Was it really [that hard](https://github.com/torvalds/linux/commit/51151098d7ab832f2a8b8f5c51fe224a9c98fdd5), Sony?
 
