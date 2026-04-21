@@ -7,7 +7,24 @@ dev="$(ls /sys/bus/hid/devices/*:054C:0CE6.*/hidraw | sed 's|^|/dev/|')"
 
 # Play a local file
 ffmpeg -re -i ./audio.mp3 -ac 2 -ar 3000 -f s8 - | ./SAxense > "$dev"
+```
+The arguments mean:
 
+- `-re`: read the input at its native playback rate instead of as fast as possible. Without this, ffmpeg would usually decode the whole file immediately, which would make haptics race through instead of playing in real time.
+- `-i ./audio.mp3`: input file path.
+- `-ac 2`: force 2 audio channels, so the output is stereo. For this project that maps naturally to left/right haptics data.
+- `-ar 3000`: resample audio to 3000 Hz. That is a very low sample rate compared to normal audio, but appropriate here because this is not being sent to speakers, it is being used as control data for haptics.
+- `-f s8`: set the output format to signed 8-bit PCM samples. This tells ffmpeg to emit raw bytes in 8-bit signed form rather than a container format like WAV.
+- `-`: write output to stdout instead of a file, so it can be piped directly into SAxense.
+
+So the pipeline is effectively:
+
+ 1. Decode MP3.
+ 2. Convert it to stereo, 3000 Hz, signed 8-bit raw PCM.
+ 3. Stream that raw data into SAxense.
+ 4. SAxense converts it into DualSense haptics packets and writes them to the HID device.
+
+```
 # Provide a separate haptics sink (recommended)
 pw-cli -m load-module libpipewire-module-pipe-tunnel tunnel.mode=sink pipe.filename=/dev/shm/SAxense.sock audio.format=u8 audio.rate=3000 audio.channels=2 node.name=SAxense stream.props='{media.role=Haptics device.icon-name=input-gaming}'
 ./SAxense < /dev/shm/SAxense > "$dev"
