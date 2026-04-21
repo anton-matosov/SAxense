@@ -26,16 +26,22 @@ So the pipeline is effectively:
 
 ```
 # Provide a separate haptics sink (recommended)
-pw-cli -m load-module libpipewire-module-pipe-tunnel tunnel.mode=sink pipe.filename=/dev/shm/SAxense.sock audio.format=u8 audio.rate=3000 audio.channels=2 node.name=SAxense stream.props='{media.role=Haptics device.icon-name=input-gaming}'
-./SAxense < /dev/shm/SAxense > "$dev"
+pw-cli -m load-module libpipewire-module-pipe-tunnel tunnel.mode=sink pipe.filename=/dev/shm/SAxense.sock audio.format=U8 audio.rate=3000 audio.channels=2 node.name=SAxense stream.props='{media.role=Haptics device.icon-name=input-gaming}' &
+pw_pid=$!
+./SAxense < /dev/shm/SAxense.sock > "$dev"
+kill "$pw_pid"
 
 # Capture loopback as haptics (not recommended)
-pw-cli -m load-module libpipewire-module-pipe-tunnel tunnel.mode=capture pipe.filename=/dev/shm/SAxense.sock audio.format=u8 audio.rate=3000 audio.channels=2 node.name=SAxense stream.props='{media.role=Haptics device.icon-name=input-gaming}'
+pw-cli -m load-module libpipewire-module-pipe-tunnel tunnel.mode=capture pipe.filename=/dev/shm/SAxense.sock audio.format=U8 audio.rate=3000 audio.channels=2 node.name=SAxense stream.props='{media.role=Haptics device.icon-name=input-gaming}' &
+pw_pid=$!
 # (you might need to change it from a default source to the default sink monitor)
-./SAxense < /dev/shm/SAxense > "$dev"
+./SAxense < /dev/shm/SAxense.sock > "$dev"
+kill "$pw_pid"
 ```
 > [!NOTE]
 > Depending on your setup, you might experience some subtle delay (but up to couple seconds in some rare cases). It comes neither from SAxense nor HID/BT, but from the latency in capturing the loopback audio stream. Try `sox` or `ffmpeg` in such case, this might help reduce it. A native real-time PipeWire SPA plugin is on its way soon (this will also bring native games support for those already using it over UAC).
+>
+> The `pw-cli` process must stay alive for the tunnel FIFO to exist. If you run `pw-cli load-module ...` and let it exit before starting `SAxense`, `/dev/shm/SAxense.sock` will disappear.
 
 #### With multiple devices:
 ```sh
