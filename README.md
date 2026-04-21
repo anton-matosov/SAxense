@@ -3,10 +3,10 @@
 
 ### Usage (DualSense & Edge):
 ```sh
-dev="$(ls /sys/devices/virtual/misc/uhid/0005:054C:{0CE6,0DF2}.*/hidraw | sed 's|^|/dev/|')"
+dev="$(ls /sys/bus/hid/devices/*:054C:0CE6.*/hidraw | sed 's|^|/dev/|')"
 
 # Play a local file
-ffmpeg -re -i /path/to/audio.mp3 -ac 2 -ar 3000 -f s8 - | ./SAxense > "$dev"
+ffmpeg -re -i ./audio.mp3 -ac 2 -ar 3000 -f s8 - | ./SAxense > "$dev"
 
 # Provide a separate haptics sink (recommended)
 pw-cli -m load-module libpipewire-module-pipe-tunnel tunnel.mode=sink pipe.filename=/dev/shm/SAxense.sock audio.format=u8 audio.rate=3000 audio.channels=2 node.name=SAxense stream.props='{media.role=Haptics device.icon-name=input-gaming}'
