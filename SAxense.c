@@ -59,6 +59,9 @@ static report_t *g_report;
 static uint8_t *g_sample_buffer;
 static uint8_t *g_control_sequence;
 
+static FILE *g_input_stream;
+static FILE *g_output_stream;
+
 static uint32_t crc32(const uint8_t *data, size_t size) {
 	uint32_t crc = ~0xEADA2D49;  // 0xA2 seed
 
@@ -107,9 +110,9 @@ static void update_report_crc(void) {
 
 static void handle_timer_tick(int signal_number) {
 	(void)signal_number;
-	fwrite_unlocked(g_report, sizeof(*g_report), 1, stdout);
+	fwrite_unlocked(g_report, sizeof(*g_report), 1, g_output_stream);
 
-	if (!fread_unlocked(g_sample_buffer, sizeof(*g_sample_buffer), SAMPLE_SIZE, stdin))
+	if (!fread_unlocked(g_sample_buffer, sizeof(*g_sample_buffer), SAMPLE_SIZE, g_input_stream))
 		exit(0);
 
 	(*g_control_sequence)++;
@@ -121,7 +124,7 @@ static void initialize_report(void) {
 		.pid = CONTROL_PACKET_ID,
 		.sized = true,
 		.length = CONTROL_PAYLOAD_SIZE,
-		.data = {0b11111110, 0, 0, 0, 0, 0xFF, 0},
+		.data = {0b11111110, 0, 0, 0, 0, 0b00100000, 0},
 	};
 	static const packet_t audio_packet_template = {
 		.pid = AUDIO_PACKET_ID,
@@ -170,9 +173,24 @@ static timer_t start_sample_timer(void) {
 	return timer_id;
 }
 
-int main(void) {
-	setbuf(stdin, NULL);
-	setbuf(stdout, NULL);
+int main(int argc, char *argv[]) {
+	if (argc > 1) {
+		g_input_stream = fopen(argv[1], "rb");
+		if (!g_input_stream)
+			fail("fopen input");
+	} else {
+		g_input_stream = stdin;
+	}
+	if (argc > 2) {
+		g_output_stream = fopen(argv[2], "wb");
+		if (!g_output_stream)
+			fail("fopen output");
+	} else {
+		g_output_stream = stdout;
+	}
+	setbuf(g_input_stream, NULL);
+	setbuf(g_output_stream, NULL);
+
 	validate_output_transport();
 	if (mlockall(MCL_CURRENT | MCL_FUTURE) != 0)
 		fail("mlockall");

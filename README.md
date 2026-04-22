@@ -28,13 +28,14 @@ So the pipeline is effectively:
 
 ```
 # Provide a separate haptics sink (recommended)
-pw-cli -m load-module libpipewire-module-pipe-tunnel tunnel.mode=sink pipe.filename=/dev/shm/SAxense.sock audio.format=U8 audio.rate=3000 audio.channels=2 node.name=SAxense stream.props='{media.role=Haptics device.icon-name=input-gaming}' &
+dev="$(ls /sys/bus/hid/devices/*:054C:0CE6.*/hidraw | sed 's|^|/dev/|')"
+pw-cli -m load-module libpipewire-module-pipe-tunnel tunnel.mode=sink pipe.filename=/dev/shm/SAxense.sock audio.format=S8 audio.rate=3000 audio.channels=2 node.name=SAxense stream.props='{media.role=Haptics device.icon-name=input-gaming}' &
 pw_pid=$!
 ./SAxense < /dev/shm/SAxense.sock > "$dev"
 kill "$pw_pid"
 
 # Capture loopback as haptics (not recommended)
-pw-cli -m load-module libpipewire-module-pipe-tunnel tunnel.mode=capture pipe.filename=/dev/shm/SAxense.sock audio.format=U8 audio.rate=3000 audio.channels=2 node.name=SAxense stream.props='{media.role=Haptics device.icon-name=input-gaming}' &
+pw-cli -m load-module libpipewire-module-pipe-tunnel tunnel.mode=capture pipe.filename=/dev/shm/SAxense.sock audio.format=S8 audio.rate=3000 audio.channels=2 node.name=SAxense stream.props='{media.role=Haptics device.icon-name=input-gaming}' &
 pw_pid=$!
 # (you might need to change it from a default source to the default sink monitor)
 ./SAxense < /dev/shm/SAxense.sock > "$dev"
