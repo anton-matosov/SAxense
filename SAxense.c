@@ -31,8 +31,8 @@ enum {
 
 typedef struct __attribute__((packed)) packet {
 	uint8_t pid :6;
-	bool unk :1,
-	     sized :1;
+	bool unk :1;
+	bool sized :1;
 	uint8_t length;
 	uint8_t data[];
 } packet_t;
@@ -41,8 +41,8 @@ typedef struct __attribute__((packed)) report {
 	uint8_t report_id;
 	union {
 		struct __attribute__((packed)) {
-			uint8_t tag :4,
-			        seq :4;
+			uint8_t tag :4;
+			uint8_t seq :4;
 			uint8_t data[];
 		};
 		struct __attribute__((packed)) {
