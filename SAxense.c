@@ -20,6 +20,7 @@
 #define REPORT_ID 0x32
 #define SAMPLE_SIZE 64
 #define SAMPLE_RATE 3000
+#define NANOSECONDS_PER_SECOND 1000000000UL
 
 enum {
 	CONTROL_PACKET_ID = 0x11,
@@ -122,7 +123,7 @@ static void initialize_report(void) {
 
 static timer_t start_sample_timer(void) {
 	struct itimerspec timer_spec = {0};
-	timer_spec.it_interval.tv_nsec = 1000000000UL * SAMPLE_SIZE / (SAMPLE_RATE * 2);
+	timer_spec.it_interval.tv_nsec = NANOSECONDS_PER_SECOND * SAMPLE_SIZE / (SAMPLE_RATE * 2);
 	timer_spec.it_value.tv_nsec = 1;
 
 	timer_t timer_id;
