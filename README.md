@@ -1,5 +1,7 @@
 # SAxense — DualSense Haptics over Bluetooth (POC)
 
+This tool writes Bluetooth report `0x32` packets to a DualSense hidraw node. It is not a USB haptics path: when the controller is connected over USB, haptics PCM must be sent to the controller's audio interface instead of its hidraw device.
+
 
 ### Usage (DualSense & Edge):
 ```sh

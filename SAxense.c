@@ -14,7 +14,10 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <linux/hidraw.h>
+#include <linux/input.h>
 
 #define REPORT_SIZE 141
 #define REPORT_ID 0x32
@@ -71,6 +74,31 @@ static uint32_t crc32(const uint8_t *data, size_t size) {
 static void fail(const char *message) {
 	perror(message);
 	exit(EXIT_FAILURE);
+}
+
+static bool detect_stdout_bus_type(unsigned *bus_type) {
+	struct hidraw_devinfo device_info;
+
+	if (ioctl(STDOUT_FILENO, HIDIOCGRAWINFO, &device_info) != 0)
+		return false;
+
+	*bus_type = device_info.bustype;
+	return true;
+}
+
+static void validate_output_transport(void) {
+	unsigned bus_type;
+
+	if (!detect_stdout_bus_type(&bus_type))
+		return;
+
+	if (bus_type == BUS_USB) {
+		fprintf(stderr,
+			"SAxense only supports DualSense haptics over Bluetooth hidraw output.\n"
+			"USB-connected controllers expose haptics through the controller audio interface,\n"
+			"so writing this Bluetooth 0x32 report stream to a USB hidraw node causes undefined behavior.\n");
+		exit(EXIT_FAILURE);
+	}
 }
 
 static void update_report_crc(void) {
@@ -145,6 +173,7 @@ static timer_t start_sample_timer(void) {
 int main(void) {
 	setbuf(stdin, NULL);
 	setbuf(stdout, NULL);
+	validate_output_transport();
 	if (mlockall(MCL_CURRENT | MCL_FUTURE) != 0)
 		fail("mlockall");
 
