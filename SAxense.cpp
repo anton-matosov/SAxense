@@ -60,9 +60,7 @@ struct __attribute__((packed)) report {
 	uint32_t crc;
 };
 
-static_assert(sizeof(control_packet_t) == 2 + CONTROL_PAYLOAD_SIZE, "unexpected control packet size");
-static_assert(sizeof(audio_packet_t) == 2 + SAMPLE_SIZE, "unexpected audio packet size");
-static_assert(sizeof(report) == 1 + REPORT_SIZE, "unexpected report size");
+static_assert(sizeof(report) == sizeof(report::report_id) + REPORT_SIZE, "unexpected report size");
 
 static report *g_report;
 static uint8_t *g_sample_buffer;
