@@ -63,7 +63,6 @@ struct __attribute__((packed)) report {
 static_assert(sizeof(report) == sizeof(report::report_id) + REPORT_SIZE, "unexpected report size");
 
 static report *g_report;
-static uint8_t *g_sample_buffer;
 static uint8_t *g_control_sequence;
 
 static FILE *g_input_stream;
@@ -119,7 +118,8 @@ static void handle_timer_tick(int signal_number) {
 	(void)signal_number;
 	fwrite_unlocked(g_report, sizeof(*g_report), 1, g_output_stream);
 
-	if (!fread_unlocked(g_sample_buffer, sizeof(*g_sample_buffer), SAMPLE_SIZE, g_input_stream))
+	uint8_t *sample_buffer = g_report->payload.audio.data;
+	if (!fread_unlocked(sample_buffer, sizeof(*sample_buffer), SAMPLE_SIZE, g_input_stream))
 		exit(0);
 
 	(*g_control_sequence)++;
@@ -138,7 +138,7 @@ static void initialize_report(void) {
 
 	// Byte 6 in the control payload acts as the packet sequence counter.
 	g_control_sequence = &g_report->payload.control.data[CONTROL_SEQUENCE_OFFSET];
-	g_sample_buffer = g_report->payload.audio.data;
+
 	update_report_crc();
 }
 
