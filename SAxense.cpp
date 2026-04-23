@@ -30,29 +30,14 @@ enum {
 	AUDIO_PACKET_ID = 0x12,
 	CONTROL_PAYLOAD_SIZE = 7,
 	CONTROL_SEQUENCE_OFFSET = 6,
+	PACKET_HEADER_SIZE = 2,
+	REPORT_DATA_OFFSET = 1,
 };
-
-typedef struct __attribute__((packed)) packet {
-	uint8_t pid :6;
-	bool unk :1;
-	bool sized :1;
-	uint8_t length;
-	uint8_t data[];
-} packet_t;
 
 typedef struct __attribute__((packed)) report {
 	uint8_t report_id;
-	union {
-		struct __attribute__((packed)) {
-			uint8_t tag :4;
-			uint8_t seq :4;
-			uint8_t data[];
-		};
-		struct __attribute__((packed)) {
-			uint8_t payload[REPORT_SIZE - sizeof(uint32_t)];
-			uint32_t crc;
-		};
-	};
+	uint8_t payload[REPORT_SIZE - sizeof(uint32_t)];
+	uint32_t crc;
 } report_t;
 
 static report_t *g_report;
@@ -120,45 +105,43 @@ static void handle_timer_tick(int signal_number) {
 }
 
 static void initialize_report(void) {
-	static const packet_t control_packet_template = {
-		.pid = CONTROL_PACKET_ID,
-		.sized = true,
-		.length = CONTROL_PAYLOAD_SIZE,
-		.data = {0b11111110, 0, 0, 0, 0, 0b00100000, 0},
+	static const uint8_t control_packet_template[PACKET_HEADER_SIZE + CONTROL_PAYLOAD_SIZE] = {
+		static_cast<uint8_t>(0x80 | CONTROL_PACKET_ID),
+		CONTROL_PAYLOAD_SIZE,
+		0b11111110, 0, 0, 0, 0, 0xFF, 0,
 	};
-	static const packet_t audio_packet_template = {
-		.pid = AUDIO_PACKET_ID,
-		.sized = true,
-		.length = SAMPLE_SIZE,
-		.data = {[0 ... SAMPLE_SIZE - 1] = 0},
+	static const uint8_t audio_packet_template[PACKET_HEADER_SIZE + SAMPLE_SIZE] = {
+		static_cast<uint8_t>(0x80 | AUDIO_PACKET_ID),
+		SAMPLE_SIZE,
 	};
 
-	g_report = malloc(sizeof(*g_report));
+	g_report = static_cast<report_t *>(calloc(1, sizeof(*g_report)));
 	if (!g_report)
-		fail("malloc");
+		fail("calloc");
 
 	g_report->report_id = REPORT_ID;
-	g_report->tag = 0;
+	g_report->payload[0] = 0;
 
-	packet_t *control_packet = (packet_t *)(g_report->data + 0);
-	packet_t *audio_packet = (packet_t *)(g_report->data + sizeof(control_packet_template) + control_packet_template.length);
+	uint8_t *report_data = g_report->payload + REPORT_DATA_OFFSET;
+	uint8_t *control_packet = report_data;
+	uint8_t *audio_packet = report_data + sizeof(control_packet_template);
 
-	memcpy(control_packet, &control_packet_template, sizeof(control_packet_template) + control_packet_template.length);
-	memcpy(audio_packet, &audio_packet_template, sizeof(audio_packet_template));
+	memcpy(control_packet, control_packet_template, sizeof(control_packet_template));
+	memcpy(audio_packet, audio_packet_template, sizeof(audio_packet_template));
 
 	// Byte 6 in the control payload acts as the packet sequence counter.
-	g_control_sequence = &control_packet->data[CONTROL_SEQUENCE_OFFSET];
-	g_sample_buffer = audio_packet->data;
+	g_control_sequence = control_packet + PACKET_HEADER_SIZE + CONTROL_SEQUENCE_OFFSET;
+	g_sample_buffer = audio_packet + PACKET_HEADER_SIZE;
 	update_report_crc();
 }
 
 static timer_t start_sample_timer(void) {
-	struct itimerspec timer_spec = {0};
+	struct itimerspec timer_spec = {};
 	timer_spec.it_interval.tv_nsec = NANOSECONDS_PER_SECOND * SAMPLE_SIZE / (SAMPLE_RATE * 2);
 	timer_spec.it_value.tv_nsec = 1;
 
 	timer_t timer_id;
-	struct sigevent signal_event = {0};
+	struct sigevent signal_event = {};
 	signal_event.sigev_notify = SIGEV_SIGNAL;
 	signal_event.sigev_signo = SIGRTMIN;
 	signal_event.sigev_value.sival_ptr = &timer_id;
