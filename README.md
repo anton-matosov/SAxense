@@ -2,13 +2,22 @@
 
 This tool writes Bluetooth report `0x32` packets to a DualSense hidraw node. It is not a USB haptics path: when the controller is connected over USB, haptics PCM must be sent to the controller's audio interface instead of its hidraw device.
 
+## Build
 
-### Usage (DualSense & Edge):
+Linux is required to build SAxense because it depends on Linux hidraw/input kernel headers and APIs.
+
+```sh
+cmake -S . -B build
+cmake --build build --parallel
+```
+
+### Usage (DualSense & Edge)
+
 ```sh
 dev="$(ls /sys/bus/hid/devices/*:054C:0CE6.*/hidraw | sed 's|^|/dev/|')"
 
 # Play a local file
-ffmpeg -re -i ./audio.mp3 -ac 2 -ar 3000 -f s8 - | ./SAxense > "$dev"
+ffmpeg -re -i ./audio.mp3 -ac 2 -ar 3000 -f s8 - | ./build/SAxense > "$dev"
 ```
 The arguments mean:
 
@@ -31,14 +40,14 @@ So the pipeline is effectively:
 dev="$(ls /sys/bus/hid/devices/*:054C:0CE6.*/hidraw | sed 's|^|/dev/|')"
 pw-cli -m load-module libpipewire-module-pipe-tunnel tunnel.mode=sink pipe.filename=/dev/shm/SAxense.sock audio.format=S8 audio.rate=3000 audio.channels=2 node.name=SAxense stream.props='{media.role=Haptics device.icon-name=input-gaming}' &
 pw_pid=$!
-./SAxense < /dev/shm/SAxense.sock > "$dev"
+./build/SAxense < /dev/shm/SAxense.sock > "$dev"
 kill "$pw_pid"
 
 # Capture loopback as haptics (not recommended)
 pw-cli -m load-module libpipewire-module-pipe-tunnel tunnel.mode=capture pipe.filename=/dev/shm/SAxense.sock audio.format=S8 audio.rate=3000 audio.channels=2 node.name=SAxense stream.props='{media.role=Haptics device.icon-name=input-gaming}' &
 pw_pid=$!
 # (you might need to change it from a default source to the default sink monitor)
-./SAxense < /dev/shm/SAxense.sock > "$dev"
+./build/SAxense < /dev/shm/SAxense.sock > "$dev"
 kill "$pw_pid"
 ```
 > [!NOTE]
