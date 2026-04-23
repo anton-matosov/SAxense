@@ -49,18 +49,19 @@ struct __attribute__((packed)) report_payload {
 	uint8_t seq :4;
 	control_packet_t control;
 	audio_packet_t audio;
-	uint8_t __padding[REPORT_SIZE - sizeof(control_packet_t) - sizeof(audio_packet_t) - sizeof(uint8_t) - sizeof(uint32_t)];
 };
 
 struct __attribute__((packed)) report {
 	uint8_t report_id;
-	report_payload payload;
+	union {
+		report_payload payload;
+		uint8_t raw[REPORT_SIZE - sizeof(uint32_t) /*crc*/];
+	};
 	uint32_t crc;
 };
 
 static_assert(sizeof(control_packet_t) == 2 + CONTROL_PAYLOAD_SIZE, "unexpected control packet size");
 static_assert(sizeof(audio_packet_t) == 2 + SAMPLE_SIZE, "unexpected audio packet size");
-static_assert(sizeof(report_payload) == REPORT_SIZE - sizeof(uint32_t), "unexpected report payload size");
 static_assert(sizeof(report) == 1 + REPORT_SIZE, "unexpected report size");
 
 static report *g_report;
@@ -113,7 +114,7 @@ static void validate_output_transport(void) {
 }
 
 static void update_report_crc(void) {
-	g_report->crc = crc32((const uint8_t *)g_report, 1 + sizeof(g_report->payload));
+	g_report->crc = crc32((const uint8_t *)g_report,  sizeof(*g_report) - sizeof(g_report->crc));
 }
 
 static void handle_timer_tick(int signal_number) {
@@ -128,9 +129,7 @@ static void handle_timer_tick(int signal_number) {
 }
 
 static void initialize_report(void) {
-	g_report = static_cast<report *>(calloc(1, sizeof(*g_report)));
-	if (!g_report)
-		fail("calloc");
+	g_report = new report{};
 
 	g_report->report_id = REPORT_ID;
 	g_report->payload.tag = 0;
