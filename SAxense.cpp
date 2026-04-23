@@ -6,6 +6,8 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
+#include <iostream>
+#include <ostream>
 #include <time.h>
 #include <stdio.h>
 #include <signal.h>
@@ -45,8 +47,8 @@ using control_packet_t = packet_t<CONTROL_PACKET_ID, CONTROL_PAYLOAD_SIZE>;
 using audio_packet_t = packet_t<AUDIO_PACKET_ID, SAMPLE_SIZE>;
 
 struct __attribute__((packed)) report_payload {
-	uint8_t tag :4;
-	uint8_t seq :4;
+	uint8_t tag :4 = 0;
+	uint8_t seq :4 = 0;
 	control_packet_t control;
 	audio_packet_t audio;
 };
@@ -69,7 +71,7 @@ static FILE *g_input_stream;
 static FILE *g_output_stream;
 
 static uint32_t crc32(const uint8_t *data, size_t size) {
-	uint32_t crc = ~0xEADA2D49;  // 0xA2 seed
+	uint32_t crc = ~0xEADA2D49;  // 0xA2 seed. HIDp header is part of the CRC calculation
 
 	while (size--) {
 		crc ^= *data++;
@@ -130,8 +132,6 @@ static void initialize_report(void) {
 	g_report = new report{};
 
 	g_report->report_id = REPORT_ID;
-	g_report->payload.tag = 0;
-	g_report->payload.seq = 0;
 	
 	// has output haptics:
 	// - 0b11111110
@@ -180,6 +180,8 @@ static timer_t start_sample_timer(void) {
 	struct itimerspec timer_spec = {};
 	timer_spec.it_interval.tv_nsec = NANOSECONDS_PER_SECOND * SAMPLE_SIZE / (SAMPLE_RATE * 2);
 	timer_spec.it_value.tv_nsec = 1;
+
+	std::clog << "Sample timer interval: " << timer_spec.it_interval.tv_nsec << "ns" << std::endl;
 
 	timer_t timer_id;
 	struct sigevent signal_event = {};
