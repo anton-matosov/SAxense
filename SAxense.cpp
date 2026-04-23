@@ -32,17 +32,17 @@ enum {
 	CONTROL_SEQUENCE_OFFSET = 6,
 };
 
-template <size_t PayloadSize>
+template <uint8_t PacketID, size_t PayloadSize>
 struct __attribute__((packed)) packet_t {
-	uint8_t pid :6;
-	bool unk :1;
-	bool sized :1;
-	uint8_t length;
+	uint8_t pid :6 = PacketID;
+	bool unk :1 = false;
+	bool sized :1 = true;
+	uint8_t length = PayloadSize;
 	uint8_t data[PayloadSize];
 };
 
-using control_packet_t = packet_t<CONTROL_PAYLOAD_SIZE>;
-using audio_packet_t = packet_t<SAMPLE_SIZE>;
+using control_packet_t = packet_t<CONTROL_PACKET_ID, CONTROL_PAYLOAD_SIZE>;
+using audio_packet_t = packet_t<AUDIO_PACKET_ID, SAMPLE_SIZE>;
 
 struct __attribute__((packed)) report_payload {
 	uint8_t tag :4;
@@ -132,16 +132,9 @@ static void initialize_report(void) {
 	g_report->report_id = REPORT_ID;
 	g_report->payload.tag = 0;
 	g_report->payload.seq = 0;
-	g_report->payload.control.pid = CONTROL_PACKET_ID;
-	g_report->payload.control.unk = false;
-	g_report->payload.control.sized = true;
-	g_report->payload.control.length = CONTROL_PAYLOAD_SIZE;
+	
 	g_report->payload.control.data[0] = 0b11111110;
 	g_report->payload.control.data[5] = 0xFF;
-	g_report->payload.audio.pid = AUDIO_PACKET_ID;
-	g_report->payload.audio.unk = false;
-	g_report->payload.audio.sized = true;
-	g_report->payload.audio.length = SAMPLE_SIZE;
 
 	// Byte 6 in the control payload acts as the packet sequence counter.
 	g_control_sequence = &g_report->payload.control.data[CONTROL_SEQUENCE_OFFSET];

@@ -8,13 +8,12 @@
       "name": "Launch",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceRoot}/SAxense",
+      "program": "${cmakeTarget:SAxense}",
       "args": [
         "/dev/shm/SAxense.sock",
         "/dev/hidraw0"
       ],
       "cwd": "${workspaceRoot}",
-      "preLaunchTask": "build"
     }
   ]
 }
