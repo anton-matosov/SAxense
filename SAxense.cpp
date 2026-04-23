@@ -133,8 +133,42 @@ static void initialize_report(void) {
 	g_report->payload.tag = 0;
 	g_report->payload.seq = 0;
 	
-	g_report->payload.control.data[0] = 0b11111110;
-	g_report->payload.control.data[5] = 0xFF;
+	// has output haptics:
+	// - 0b11111110
+	// - 0b11111101
+	// - 0b11111111
+	// - 0b11111100
+	//
+	// no output
+	// - 0b01111111
+	// - 0b10111111
+	// - 0b11011111
+	// - 0b11101111
+	// - 0b11110111
+	// - 0b11111011
+	g_report->payload.control.data[0] = 0b11111100;
+
+	// These are some sort of flags. 
+	// 0b00000001 - silent
+	// 0b00000011 - silent
+	// 0b00000111 - silent
+	// 0b00001111 - normal
+	// 0b00001100 - silent
+	// 0b00001110 - silent
+	// 0b00001000 - some sort of low pass filter or different encoding, high frequencies are gone. In this mode control sequence counter doesn't seem to be needed. Might be some sort of compatibility mode
+	// Any bits in the top 4 seem to enable normal haptics.
+	// 0b00010000 - normal
+	// 0b00100000 - normal
+	// 0b01000000 - normal
+	// 0b10000000 - normal
+	// 0b01010000 - normal
+	// 0b11110000 - normal
+	// 0b11110001 - normal
+	// 0b11110011 - normal
+	// 0b11110010 - normal
+	// 0b11110100 - normal
+	// 0b11111000 - normal
+	g_report->payload.control.data[5] = 0b11110000;
 
 	// Byte 6 in the control payload acts as the packet sequence counter.
 	g_control_sequence = &g_report->payload.control.data[CONTROL_SEQUENCE_OFFSET];
