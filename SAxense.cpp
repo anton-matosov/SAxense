@@ -30,15 +30,38 @@ enum {
 	AUDIO_PACKET_ID = 0x12,
 	CONTROL_PAYLOAD_SIZE = 7,
 	CONTROL_SEQUENCE_OFFSET = 6,
-	PACKET_HEADER_SIZE = 2,
-	REPORT_DATA_OFFSET = 1,
 };
+
+template <size_t PayloadSize>
+struct __attribute__((packed)) packet_t {
+	uint8_t pid :6;
+	bool unk :1;
+	bool sized :1;
+	uint8_t length;
+	uint8_t data[PayloadSize];
+};
+
+typedef packet_t<CONTROL_PAYLOAD_SIZE> control_packet_t;
+typedef packet_t<SAMPLE_SIZE> audio_packet_t;
+
+typedef struct __attribute__((packed)) report_payload {
+	uint8_t tag :4;
+	uint8_t seq :4;
+	control_packet_t control;
+	audio_packet_t audio;
+	uint8_t reserved[REPORT_SIZE - sizeof(uint32_t) - 1 - sizeof(control_packet_t) - sizeof(audio_packet_t)];
+} report_payload_t;
 
 typedef struct __attribute__((packed)) report {
 	uint8_t report_id;
-	uint8_t payload[REPORT_SIZE - sizeof(uint32_t)];
+	report_payload_t payload;
 	uint32_t crc;
 } report_t;
+
+static_assert(sizeof(control_packet_t) == 2 + CONTROL_PAYLOAD_SIZE, "unexpected control packet size");
+static_assert(sizeof(audio_packet_t) == 2 + SAMPLE_SIZE, "unexpected audio packet size");
+static_assert(sizeof(report_payload_t) == REPORT_SIZE - sizeof(uint32_t), "unexpected report payload size");
+static_assert(sizeof(report_t) == 1 + REPORT_SIZE, "unexpected report size");
 
 static report_t *g_report;
 static uint8_t *g_sample_buffer;
@@ -105,33 +128,27 @@ static void handle_timer_tick(int signal_number) {
 }
 
 static void initialize_report(void) {
-	static const uint8_t control_packet_template[PACKET_HEADER_SIZE + CONTROL_PAYLOAD_SIZE] = {
-		static_cast<uint8_t>(0x80 | CONTROL_PACKET_ID),
-		CONTROL_PAYLOAD_SIZE,
-		0b11111110, 0, 0, 0, 0, 0xFF, 0,
-	};
-	static const uint8_t audio_packet_template[PACKET_HEADER_SIZE + SAMPLE_SIZE] = {
-		static_cast<uint8_t>(0x80 | AUDIO_PACKET_ID),
-		SAMPLE_SIZE,
-	};
-
 	g_report = static_cast<report_t *>(calloc(1, sizeof(*g_report)));
 	if (!g_report)
 		fail("calloc");
 
 	g_report->report_id = REPORT_ID;
-	g_report->payload[0] = 0;
-
-	uint8_t *report_data = g_report->payload + REPORT_DATA_OFFSET;
-	uint8_t *control_packet = report_data;
-	uint8_t *audio_packet = report_data + sizeof(control_packet_template);
-
-	memcpy(control_packet, control_packet_template, sizeof(control_packet_template));
-	memcpy(audio_packet, audio_packet_template, sizeof(audio_packet_template));
+	g_report->payload.tag = 0;
+	g_report->payload.seq = 0;
+	g_report->payload.control.pid = CONTROL_PACKET_ID;
+	g_report->payload.control.unk = false;
+	g_report->payload.control.sized = true;
+	g_report->payload.control.length = CONTROL_PAYLOAD_SIZE;
+	g_report->payload.control.data[0] = 0b11111110;
+	g_report->payload.control.data[5] = 0xFF;
+	g_report->payload.audio.pid = AUDIO_PACKET_ID;
+	g_report->payload.audio.unk = false;
+	g_report->payload.audio.sized = true;
+	g_report->payload.audio.length = SAMPLE_SIZE;
 
 	// Byte 6 in the control payload acts as the packet sequence counter.
-	g_control_sequence = control_packet + PACKET_HEADER_SIZE + CONTROL_SEQUENCE_OFFSET;
-	g_sample_buffer = audio_packet + PACKET_HEADER_SIZE;
+	g_control_sequence = &g_report->payload.control.data[CONTROL_SEQUENCE_OFFSET];
+	g_sample_buffer = g_report->payload.audio.data;
 	update_report_crc();
 }
 
