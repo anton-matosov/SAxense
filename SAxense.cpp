@@ -41,29 +41,29 @@ struct __attribute__((packed)) packet_t {
 	uint8_t data[PayloadSize];
 };
 
-typedef packet_t<CONTROL_PAYLOAD_SIZE> control_packet_t;
-typedef packet_t<SAMPLE_SIZE> audio_packet_t;
+using control_packet_t = packet_t<CONTROL_PAYLOAD_SIZE>;
+using audio_packet_t = packet_t<SAMPLE_SIZE>;
 
-typedef struct __attribute__((packed)) report_payload {
+struct __attribute__((packed)) report_payload {
 	uint8_t tag :4;
 	uint8_t seq :4;
 	control_packet_t control;
 	audio_packet_t audio;
-	uint8_t reserved[REPORT_SIZE - sizeof(uint32_t) - 1 - sizeof(control_packet_t) - sizeof(audio_packet_t)];
-} report_payload_t;
+	uint8_t __padding[REPORT_SIZE - sizeof(control_packet_t) - sizeof(audio_packet_t) - sizeof(uint8_t) - sizeof(uint32_t)];
+};
 
-typedef struct __attribute__((packed)) report {
+struct __attribute__((packed)) report {
 	uint8_t report_id;
-	report_payload_t payload;
+	report_payload payload;
 	uint32_t crc;
-} report_t;
+};
 
 static_assert(sizeof(control_packet_t) == 2 + CONTROL_PAYLOAD_SIZE, "unexpected control packet size");
 static_assert(sizeof(audio_packet_t) == 2 + SAMPLE_SIZE, "unexpected audio packet size");
-static_assert(sizeof(report_payload_t) == REPORT_SIZE - sizeof(uint32_t), "unexpected report payload size");
-static_assert(sizeof(report_t) == 1 + REPORT_SIZE, "unexpected report size");
+static_assert(sizeof(report_payload) == REPORT_SIZE - sizeof(uint32_t), "unexpected report payload size");
+static_assert(sizeof(report) == 1 + REPORT_SIZE, "unexpected report size");
 
-static report_t *g_report;
+static report *g_report;
 static uint8_t *g_sample_buffer;
 static uint8_t *g_control_sequence;
 
@@ -128,7 +128,7 @@ static void handle_timer_tick(int signal_number) {
 }
 
 static void initialize_report(void) {
-	g_report = static_cast<report_t *>(calloc(1, sizeof(*g_report)));
+	g_report = static_cast<report *>(calloc(1, sizeof(*g_report)));
 	if (!g_report)
 		fail("calloc");
 
